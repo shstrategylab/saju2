@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>사주궁합 풀이 — 관리자</title>
+<title>사주궁합 — 관리자</title>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
@@ -147,7 +147,7 @@
 
 <div class="topbar">
   <div style="display:flex; align-items:center;">
-    <div class="topbar-title">사주궁합풀이 연구소</div>
+    <div class="topbar-title">사주궁합 연구소</div>
     <span class="topbar-sub">접수 관리</span>
   </div>
   <div class="topbar-right">
@@ -171,7 +171,7 @@
       <button class="filter-btn" onclick="filterBy('완료', this)">완료</button>
     </div>
     <div class="search-bar">
-      <input type="text" id="searchInput" placeholder="이름 검색 (본인 또는 상대방)..." oninput="renderList()">
+      <input type="text" id="searchInput" placeholder="연락처, 접수번호 검색..." oninput="renderList()">
     </div>
     <div id="appList"><div class="loading">불러오는 중...</div></div>
   </div>
@@ -214,8 +214,8 @@ async function loadApplications() {
       const raw = snap.val();
       allApps = Object.entries(raw).map(([key, val]) => ({ id: key, ...val }));
       allApps.sort((a, b) => {
-        const ta = a.submittedAt || 0;
-        const tb = b.submittedAt || 0;
+        const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
         return tb - ta;
       });
     }
@@ -230,8 +230,10 @@ function renderList() {
   let filtered = currentFilter === '전체' ? allApps : allApps.filter(a => (a.status || '접수완료') === currentFilter);
   if (keyword) {
     filtered = filtered.filter(a =>
-      (a.nameA || a.name || '').toLowerCase().includes(keyword) ||
-      (a.nameB || '').toLowerCase().includes(keyword)
+      (a.contact || '').toLowerCase().includes(keyword) ||
+      (a.ref || '').toLowerCase().includes(keyword) ||
+      (a.male?.birthdate || '').toLowerCase().includes(keyword) ||
+      (a.female?.birthdate || '').toLowerCase().includes(keyword)
     );
   }
 
@@ -243,27 +245,25 @@ function renderList() {
   }
 
   el.innerHTML = filtered.map(app => {
-    const status = app.status || '접수완료';
-    const dateStr = app.submittedAt
-      ? new Date(app.submittedAt).toLocaleString('ko-KR', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' })
+    const status  = app.status || '접수완료';
+    const dateStr = app.createdAt
+      ? new Date(app.createdAt).toLocaleString('ko-KR', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' })
       : '';
-
-    // 궁합: 본인 nameA + 상대 nameB / 단일 사주인 경우 name 폴백
-    const nameA = escHtml(app.nameA || app.name || '(미입력)');
-    const nameB = escHtml(app.nameB || '');
-
-    const coupleDisplay = nameB
-      ? `<span>${nameA}</span><span class="heart-sep">♥</span><span>${nameB}</span>`
-      : `<span>${nameA}</span>`;
+    const maleBirth   = app.male?.birthdate   || '생년월일 미입력';
+    const femaleBirth = app.female?.birthdate || '생년월일 미입력';
 
     return `
       <div class="app-item ${selectedId === app.id ? 'selected' : ''}" onclick="selectApp('${app.id}')">
         <div class="app-item-name">
-          <div class="couple-label">${coupleDisplay}</div>
+          <div class="couple-label">
+            <span>♂ ${escHtml(maleBirth)}</span>
+            <span class="heart-sep">♥</span>
+            <span>♀ ${escHtml(femaleBirth)}</span>
+          </div>
           <span class="status-badge s-${status}">${status}</span>
         </div>
         <div class="app-item-meta">
-          ${escHtml(app.contactA || app.contact || '')} · ${dateStr}
+          ${escHtml(app.contact || '—')} · ${dateStr}
         </div>
       </div>`;
   }).join('');
@@ -283,54 +283,37 @@ function selectApp(id) {
   if (app) renderDetail(app);
 }
 
-/* ─── 출생시각 포맷 헬퍼 ─── */
-function formatBirthtime(time, ampm) {
-  if (time) return `${ampm || ''} ${time}`.trim();
-  if (ampm && ampm !== '모름') return ampm;
-  return '모름';
-}
-
 /* ─── 상세 렌더링 ─── */
 function renderDetail(app) {
   const status      = app.status || '접수완료';
-  const submittedAt = app.submittedAt ? new Date(app.submittedAt).toLocaleString('ko-KR') : '—';
+  const submittedAt = app.createdAt ? new Date(app.createdAt).toLocaleString('ko-KR') : '—';
 
-  /* 본인(A) */
-  const nameA      = app.nameA || app.name || '(미입력)';
-  const genderA    = app.genderA || app.gender || '';
-  const ageA       = app.ageA   || app.age   || '?';
-  const birthdateA = app.birthdateA || app.birthdate || '—';
-  const calTypeA   = app.calTypeA   || app.calType   || '양력';
-  const btimeA     = formatBirthtime(app.birthtimeA || app.birthtime, app.ampmA || app.ampm);
-  const certaintyA = app.timeCertaintyA || app.timeCertainty || '—';
-  const contactA   = app.contactA || app.contact || '—';
-  const emailA     = app.emailA  || app.email  || '—';
+  /* 남성 */
+  const maleBirthdate  = app.male?.birthdate  || '—';
+  const maleBirthtime  = app.male?.birthtime  || '—';
+  const maleBirthplace = app.male?.birthplace || '—';
 
-  /* 상대방(B) */
-  const nameB      = app.nameB      || '(미입력)';
-  const genderB    = app.genderB    || '';
-  const ageB       = app.ageB       || '?';
-  const birthdateB = app.birthdateB || '—';
-  const calTypeB   = app.calTypeB   || '양력';
-  const btimeB     = formatBirthtime(app.birthtimeB, app.ampmB);
-  const certaintyB = app.timeCertaintyB || '—';
+  /* 여성 */
+  const femaleBirthdate  = app.female?.birthdate  || '—';
+  const femaleBirthtime  = app.female?.birthtime  || '—';
+  const femaleBirthplace = app.female?.birthplace || '—';
 
   /* 풀이 요청 항목 */
-  const itemsHtml = (app.requestItems && app.requestItems.length > 0)
-    ? `<div class="items-list">${app.requestItems.map(i => `<span class="item-tag">${escHtml(i)}</span>`).join('')}</div>`
+  const itemsHtml = (app.topics && app.topics.length > 0)
+    ? `<div class="items-list">${app.topics.map(i => `<span class="item-tag">${escHtml(i)}</span>`).join('')}</div>`
     : '<span class="empty-box">(없음)</span>';
 
   document.getElementById('detailPanel').innerHTML = `
     <div class="detail-topbar">
       <div>
         <div class="detail-names">
-          <span class="person-tag-a">본인</span>
-          ${escHtml(nameA)}
+          <span class="person-tag-a">♂ 남성</span>
+          ${escHtml(maleBirthdate)}
           <span class="detail-heart">♥</span>
-          <span class="person-tag-b">상대</span>
-          ${escHtml(nameB)}
+          <span class="person-tag-b">♀ 여성</span>
+          ${escHtml(femaleBirthdate)}
         </div>
-        <div class="detail-sub">접수: ${submittedAt} &nbsp;·&nbsp; 접수번호: ${app.receiptId || app.id}</div>
+        <div class="detail-sub">접수: ${submittedAt} &nbsp;·&nbsp; 접수번호: ${escHtml(app.ref || app.id)}</div>
       </div>
       <div class="detail-actions">
         <select class="status-select" onchange="updateStatus('${app.id}', this.value)">
@@ -348,23 +331,17 @@ function renderDetail(app) {
     <div class="persons-grid">
 
       <div class="info-card person-a">
-        <div class="info-card-title">🔵 본인 (${escHtml(nameA)})</div>
-        <div class="info-row"><span class="k">이름</span><span class="v">${escHtml(nameA)}</span></div>
-        <div class="info-row"><span class="k">성별</span><span class="v">${genderA ? genderA + '성' : '—'}</span></div>
-        <div class="info-row"><span class="k">나이</span><span class="v">만 ${ageA}세</span></div>
-        <div class="info-row"><span class="k">생년월일</span><span class="v">${escHtml(birthdateA)} (${calTypeA})</span></div>
-        <div class="info-row"><span class="k">출생 시각</span><span class="v">${escHtml(btimeA)}</span></div>
-        <div class="info-row"><span class="k">시각 확실성</span><span class="v">${escHtml(certaintyA)}</span></div>
+        <div class="info-card-title">♂ 남성</div>
+        <div class="info-row"><span class="k">생년월일</span><span class="v">${escHtml(maleBirthdate)}</span></div>
+        <div class="info-row"><span class="k">출생 시각</span><span class="v">${escHtml(maleBirthtime)}</span></div>
+        <div class="info-row"><span class="k">출생지</span><span class="v">${escHtml(maleBirthplace)}</span></div>
       </div>
 
       <div class="info-card person-b">
-        <div class="info-card-title">🩷 상대방 (${escHtml(nameB)})</div>
-        <div class="info-row"><span class="k">이름</span><span class="v">${escHtml(nameB)}</span></div>
-        <div class="info-row"><span class="k">성별</span><span class="v">${genderB ? genderB + '성' : '—'}</span></div>
-        <div class="info-row"><span class="k">나이</span><span class="v">만 ${ageB}세</span></div>
-        <div class="info-row"><span class="k">생년월일</span><span class="v">${escHtml(birthdateB)} (${calTypeB})</span></div>
-        <div class="info-row"><span class="k">출생 시각</span><span class="v">${escHtml(btimeB)}</span></div>
-        <div class="info-row"><span class="k">시각 확실성</span><span class="v">${escHtml(certaintyB)}</span></div>
+        <div class="info-card-title">♀ 여성</div>
+        <div class="info-row"><span class="k">생년월일</span><span class="v">${escHtml(femaleBirthdate)}</span></div>
+        <div class="info-row"><span class="k">출생 시각</span><span class="v">${escHtml(femaleBirthtime)}</span></div>
+        <div class="info-row"><span class="k">출생지</span><span class="v">${escHtml(femaleBirthplace)}</span></div>
       </div>
 
     </div>
@@ -375,10 +352,8 @@ function renderDetail(app) {
 
       <div class="info-card full">
         <div class="info-card-title gold">연락처 &amp; 접수</div>
-        <div class="info-row"><span class="k">연락처</span><span class="v">${escHtml(contactA)}</span></div>
-        <div class="info-row"><span class="k">이메일</span><span class="v">${escHtml(emailA)}</span></div>
-        <div class="info-row"><span class="k">접수 경로</span><span class="v">${escHtml(app.referral || '—')}</span></div>
-        <div class="info-row"><span class="k">접수번호</span><span class="v" style="font-size:11px;">${app.receiptId || app.id}</span></div>
+        <div class="info-row"><span class="k">연락처 / 이메일</span><span class="v">${escHtml(app.contact || '—')}</span></div>
+        <div class="info-row"><span class="k">접수번호</span><span class="v" style="font-size:11px;">${escHtml(app.ref || app.id)}</span></div>
         <div class="info-row"><span class="k">접수일시</span><span class="v">${submittedAt}</span></div>
         <div class="info-row"><span class="k">상태</span><span class="v"><span class="status-badge s-${status}">${status}</span></span></div>
       </div>
@@ -389,9 +364,9 @@ function renderDetail(app) {
       </div>
 
       <div class="info-card full">
-        <div class="info-card-title gold">추가 전달 사항</div>
-        ${app.message
-          ? `<div class="question-box">${escHtml(app.message)}</div>`
+        <div class="info-card-title gold">의뢰 내용 / 추가 전달 사항</div>
+        ${app.memo
+          ? `<div class="question-box">${escHtml(app.memo)}</div>`
           : '<div class="empty-box">(없음)</div>'}
       </div>
 
@@ -444,10 +419,9 @@ async function saveMemo(id) {
 function downloadJson(id) {
   const app = allApps.find(a => a.id === id);
   if (!app) return;
-  const date = app.submittedAt ? new Date(app.submittedAt).toISOString().slice(0,10) : '';
-  const nameA = app.nameA || app.name || 'unknown';
-  const nameB = app.nameB || '';
-  const filename = `궁합_${nameA}${nameB ? '_' + nameB : ''}_${date}.json`;
+  const date = app.createdAt ? new Date(app.createdAt).toISOString().slice(0,10) : '';
+  const ref  = app.ref || id;
+  const filename = `궁합_${ref}_${date}.json`;
   const blob = new Blob([JSON.stringify(app, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
