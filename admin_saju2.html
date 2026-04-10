@@ -401,13 +401,15 @@ function renderList() {
       : '';
     const maleBirth   = app.male?.birthdate   || '생년월일 미입력';
     const femaleBirth = app.female?.birthdate || '생년월일 미입력';
+    const mName = app.male?.name   ? ' ' + app.male.name   : '';
+    const fName = app.female?.name ? ' ' + app.female.name : '';
     return `
       <div class="app-item ${selectedId === app.id ? 'selected' : ''}" onclick="selectApp('${app.id}')">
         <div class="app-item-name">
           <div class="couple-label">
-            <span>♂ ${escHtml(maleBirth)}</span>
+            <span>♂ ${escHtml(maleBirth)}${escHtml(mName)}</span>
             <span class="heart-sep">♥</span>
-            <span>♀ ${escHtml(femaleBirth)}</span>
+            <span>♀ ${escHtml(femaleBirth)}${escHtml(fName)}</span>
           </div>
           <span class="status-badge s-${status}">${status}</span>
         </div>
@@ -433,9 +435,11 @@ function selectApp(id) {
 function renderDetail(app) {
   const status      = app.status || '접수완료';
   const submittedAt = app.createdAt ? new Date(app.createdAt).toLocaleString('ko-KR') : '—';
+  const maleName       = app.male?.name       || '';
   const maleBirthdate  = app.male?.birthdate  || '—';
   const maleBirthtime  = app.male?.birthtime  || '—';
   const maleBirthplace = app.male?.birthplace || '—';
+  const femaleName       = app.female?.name       || '';
   const femaleBirthdate  = app.female?.birthdate  || '—';
   const femaleBirthtime  = app.female?.birthtime  || '—';
   const femaleBirthplace = app.female?.birthplace || '—';
@@ -470,12 +474,14 @@ function renderDetail(app) {
     <div class="persons-grid">
       <div class="info-card person-a">
         <div class="info-card-title">♂ 남성</div>
+        ${maleName ? `<div class="info-row"><span class="k">이름</span><span class="v">${escHtml(maleName)}</span></div>` : ''}
         <div class="info-row"><span class="k">생년월일</span><span class="v">${escHtml(maleBirthdate)}</span></div>
         <div class="info-row"><span class="k">출생 시각</span><span class="v">${escHtml(maleBirthtime)}</span></div>
         <div class="info-row"><span class="k">출생지</span><span class="v">${escHtml(maleBirthplace)}</span></div>
       </div>
       <div class="info-card person-b">
         <div class="info-card-title">♀ 여성</div>
+        ${femaleName ? `<div class="info-row"><span class="k">이름</span><span class="v">${escHtml(femaleName)}</span></div>` : ''}
         <div class="info-row"><span class="k">생년월일</span><span class="v">${escHtml(femaleBirthdate)}</span></div>
         <div class="info-row"><span class="k">출생 시각</span><span class="v">${escHtml(femaleBirthtime)}</span></div>
         <div class="info-row"><span class="k">출생지</span><span class="v">${escHtml(femaleBirthplace)}</span></div>
