@@ -314,6 +314,12 @@ auth.onAuthStateChanged(user => {
   } else {
     document.getElementById('login-screen').style.display = 'flex';
     document.getElementById('app-screen').style.display   = 'none';
+    // 버튼 & 입력 초기화
+    const btn = document.getElementById('login-btn');
+    btn.disabled = false; btn.textContent = '로그인';
+    document.getElementById('login-email').value = '';
+    document.getElementById('login-pw').value = '';
+    document.getElementById('login-error').classList.remove('show');
   }
 });
 
